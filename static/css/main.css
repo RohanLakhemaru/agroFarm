@@ -181,12 +181,15 @@ img{
     color: #000;
     font-size: 16px;
 }
-
+.table{
+    vertical-align: middle;
+}
 .table-responsive .status-btn{
     background-color: var(--bg-color);
     color: #000000;
     display: inline-block;
-    width: 130px;
+    min-width: 130px;
+    width: 100%;
     text-align: center;
     padding: 5px 20px;
     border-radius: 4px;

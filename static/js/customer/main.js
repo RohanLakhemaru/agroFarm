@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.add-to-cart-btn').forEach(button => {
         button.addEventListener('click', function () {
             const productUid = this.dataset.productUid;
+
             fetch(`/add-to-cart/${productUid}/`, {
                 method: 'GET',
                 headers: {
@@ -81,19 +82,29 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-    document.querySelectorAll('.product-item .locationpoint').forEach((element) => {
+    document.querySelectorAll('.product-listing-stock').forEach(function (element) {
         element.addEventListener('click', (e) => {
-            e.target.classList.toggle('active');
-
-            if(e.target.classList.contains('out-of-area') ){
-                if(e.target.classList.contains('active')){
-                    document.querySelector('.out-of-area-msg').style.display = 'block';
-                }else{
+            if (e.target.classList.contains('locationpoint')) {
+                if (e.target.classList.contains('active')) {
+                    e.target.classList.remove('active');
                     document.querySelector('.out-of-area-msg').style.display = 'none';
+                    
+                } else {
+                    element.querySelectorAll('.locationpoint').forEach(function (child) {
+                        child.classList.remove('active');
+                    });
+                    e.target.classList.add('active');
+                    if(e.target.classList.contains('out-of-area')){
+                        document.querySelector('.out-of-area-msg').style.display = 'block';
+                    }else{
+                        document.querySelector('.out-of-area-msg').style.display = 'none';  
+                    }
                 }
             }
-        })
-    })
+        });
+    });
+
+
     function buybuttondisabler(b) {
         document.querySelectorAll('#buyform button').forEach((element) => {
             element.disabled = b;
@@ -101,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     function checkConditions() {
         const quantity = document.getElementById('quantity').value;
-        const locationSelected = document.querySelector('.locationpoint.active-success') !== null;
+        const locationSelected = document.querySelector('.locationpoint.active') !== null;
 
         if (quantity > 0 && locationSelected) {
             buybuttondisabler(false);
@@ -121,53 +132,4 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
-
-    if(document.querySelector('.okbtn')){
-        document.querySelector('.okbtn').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('.locationpoint.active').forEach((item) => {
-                item.classList.add('active-success');
-            })
-            checkConditions();
-
-            document.querySelector('.out-of-area-msg').style.display = 'none';
-        })
-    }
-
-    if(document.querySelector('.cancelbtn')){
-        document.querySelector('.cancelbtn').addEventListener('click', (e) => {
-            e.preventDefault();
-
-            document.querySelectorAll('.locationpoint.out-of-area.active').forEach((element) => {
-                element.classList.remove('active');
-            });
-
-            document.querySelector('.out-of-area-msg').style.display = 'none';
-        })
-    }
-
-    //Quantity JS
-    // Add event listeners to handle the quantity changes
-    document.querySelectorAll('.quantity').forEach(function (spinner) {
-        const input = spinner.querySelector('input[type="number"]');
-        const btnUp = spinner.querySelector('.quantity-up');
-        const btnDown = spinner.querySelector('.quantity-down');
-        const step = parseFloat(input.getAttribute('step')) || 1;
-        const min = parseFloat(input.getAttribute('min')) || 0;
-        const max = parseFloat(input.getAttribute('max')) || 1000;
-        // Event listener for the up button
-        btnUp.addEventListener('click', function () {
-            const oldValue = parseFloat(input.value) || 0;
-            const newVal = oldValue >= max ? oldValue : oldValue + step;
-            input.value = newVal;
-            input.dispatchEvent(new Event('change'));
-        });
-        // Event listener for the down button
-        btnDown.addEventListener('click', function () {
-            const oldValue = parseFloat(input.value) || 0;
-            const newVal = oldValue <= min ? oldValue : oldValue - step;
-            input.value = newVal;
-            input.dispatchEvent(new Event('change'));
-        });
-    });
 });

@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let lat = item.getAttribute('data-lat');
             let long = item.getAttribute('data-long');
 
-            if(getDistanceFromLatLonInKm(lat, long, endLati, endLongi) >= 5){
+            if(getDistanceFromLatLonInKm(lat, long, endLati, endLongi) >= 50){
                 item.classList.add('out-of-area');
                 console.log('far');
             }
