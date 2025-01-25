@@ -22,11 +22,28 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 # from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 # from django.contrib.auth.decorators import login_required
 # from django.urls import reverse_lazy
+import os
 
 from myutility import *
 from static.pythonFiles.automate_data_entry import automate_data_entry as automatic
 
 app_name = 'customer'
+
+# for automating email while buying product
+
+from django.core.mail import send_mail
+from django.conf import settings
+
+def send_mail_to_merchant(orders):
+    for order in orders:
+        merchant = get_object_or_404(User,id=order.merchantID_id)
+        send_mail(
+            f"Order ID : #{order.uid}",
+            f"You have recieved an order for {order.productID} from {order.userID}.",
+            settings.EMAIL_HOST_USER,
+            [merchant.email],
+            fail_silently=False,
+        )    
 
 class BaseView(LoginRequiredMixin, View): #to check login or not
     login_url = '/login/'
@@ -132,23 +149,26 @@ class Signup_View (View):
         messages.error(request, "Error logging in. Please try again.")
         return redirect(request.path) 
             
-class Index(BaseView):
+class Index(View):
     def get(self, request):
-        categorys = Category.objects.all()
-        products = Product.objects.all()
-        category = []
-        for categories in categorys:
-            # Check if there is any product that belongs to this category
-            if categories.product_set.exists():  # product_set is the reverse relation for Category
-                category_products = categories.product_set.all()[:4]  # [:4] limits to 4 products
-                category.append({
-                    'category': categories,
-                    'products': category_products
-                })
+        product_users = Product_User.objects.filter(is_available = True)
+        combined_data = []
+        for product_user in product_users:
+            product = Product.objects.get(uid = product_user.productID.uid)
+
+            image_path = os.path.join('static/', 'images', f"{product.slug}.png")
+            image_exists = os.path.isfile(image_path)
+
+            combined_data.append(
+                {
+                    'products':product,
+                    'product_user':product_user,
+                    'image_exists':image_exists
+                }
+            )
         context = {
             "page_name":"home",
-            "rangelist" : [1,2,3,4] ,
-            "categorys": category
+            "combined_data": combined_data
         }
         return render(request,f'{app_name}/index.html',context)
     
@@ -164,53 +184,76 @@ class Index(BaseView):
 
 class AddAddress_View(BaseView):
     def get(self,request):
-        address_data = address()
-        countrys = address_data['country']
-        provinces = address_data['province']
-        districts = address_data['district']
+        if not Address.objects.exists():
+            address = None
+        else:
+            address = Address.objects.filter(userID = request.user).first()
         context = {
             'page_name': 'billing-address',
-            'countrys':countrys,
-            'provinces':provinces,
-            'districts':districts,
-
+            'address' : address,
         }
         return render(request,f"{app_name}/add-address.html",context)
-
+# logical error
     def post(self,request):
+        action = request.POST.get('action')
         country = request.POST.get('country')
-        province = request.POST.get('province')
+        state = request.POST.get('province')
         district = request.POST.get('district')
         municipality = request.POST.get('municipality')
         street = request.POST.get('street')
-        postalCode = request.POST.get('postalCode')
+        zip_code = request.POST.get('postalCode')
         landmark = request.POST.get('landmark')
-
-        # Fetch the related objects from the database
-
-        address = Address.objects.create(
-            userID=request.user,
-            country=country,
-            state=province,
-            district=district,
-            municipality=municipality,
-            zip_code=postalCode,
-            street=street,
-            landmark=landmark
-        )
-        address.save()
+        if action == 'edit':            
+            # Fetch the related objects from the database
+            address = Address.objects.get(userID = request.user)
+            address = Address.objects.update(
+                userID=request.user,
+                country=country,
+                state=state,
+                district=district,
+                municipality=municipality,
+                zip_code=zip_code,
+                street=street,
+                landmark=landmark,
+                is_deleted = False,
+            )
+        elif action == 'add':            
+            address = Address.objects.create(
+                userID=request.user,
+                country=country,
+                state=state,
+                district=district,
+                municipality=municipality,
+                zip_code=zip_code,
+                street=street,
+                landmark=landmark,
+                is_deleted = False,
+            )
+            address.save()
         return redirect ('/') 
 
-class Product_Detail_View(BaseView):
-    def get(self, request, product_id):
-        product = get_object_or_404(Product, uid=product_id)
-        review = Review.objects.filter(productID = product)
-        address = Address.objects.filter(userID = request.user)
+class Product_Detail_View(BaseView):#for single page display of product
+    def get(self, request, product_id): 
+        product = get_object_or_404(Product, uid=product_id)#fetching the product
+        review = Review.objects.filter(productID = product)#review of product
+        address = Address.objects.filter(userID = request.user)#current user address
+        farmer_products = Product_User.objects.filter(productID = product_id) #get the related farmer detail
+        for x in farmer_products:
+            farmer_address = Address.objects.filter(userID = x.uid)
+            detail = get_object_or_404(ExtraUserDetails, userID=x.userID.id)
+            x.latitude = detail.latitude 
+            x.longitude = detail.longitude
+        image_path = os.path.join('static/', 'images', f"{product.slug}.png")
+        image_exists = os.path.isfile(image_path)
         context = {
             "page_name": "product",
-            "products": product,
+            "product": product,
             "reviews" : review,
             "address":address,
+            "image_exists":image_exists,
+            "farmer_products" : farmer_products,
+            "farmer_address": farmer_address,
+            "detail":detail,
         }
         return render(request, f'{app_name}/product_detail.html', context)
     
@@ -218,10 +261,10 @@ class Product_Detail_View(BaseView):
         action = request.POST.get('action')
         product_ids = request.POST.getlist('product_id')
         print(product_ids)
-        if action == 'Buy Now':
+        if action == 'buy':
             request.session['product_ids'] = product_ids  # Save IDs in session
             return redirect('customer:buy-now')
-        elif action=='add to cart':
+        elif action=='cart':
             return redirect(request.path)
 
         # Default action (in case something goes wrong)
@@ -236,61 +279,103 @@ class BuyNowView(BaseView):
 
         # Fetch all products matching the selected IDs
         products = Product.objects.filter(uid__in=product_ids)
-
+        if Address.objects.filter(userID = request.user).exists():
+            print("yes")
+            address = Address.objects.get(userID = request.user)
+        else:
+            address = None
+        for product in products:
+            product_users = Product_User.objects.filter(productID = product)
+            combined_data = []
+            for product_user in product_users:
+                combined_data.append(
+                    {
+                        'products':product,
+                        'product_user':product_user
+                    }
+                )
         context = {
             "page_name": "buy-now",
-            "products": products,
+            "combined_data": combined_data,
+            "address":address,
         }
+        print(product_ids)
         return render(request, f'{app_name}/buynow.html', context)
     
     def post(self, request):
-        # Get all the product UIDs and quantities from the POST data
+        # Get data from form
         product_uids = request.POST.getlist('cart_item')  # List of product UIDs
         quantities = request.POST.getlist('quantity')  # List of quantities
 
-        # getting address of loged User
-        address = Address.objects.get(userID = request.user)
+        # getting address of buyer from form
+        country = request.POST.get('country')
+        state = request.POST.get('province')
+        district = request.POST.get('district')
+        municipality = request.POST.get('municipality')
+        street = request.POST.get('street')
+        zip_code = request.POST.get('postalCode')
+        landmark = request.POST.get('landmark')
+
+        # if user doesnot have address saved
+        if not Address.objects.filter(userID = request.user).exists():
+            Address.objects.create(
+                userID = request.user,
+                country=country,
+                state=state,
+                district=district,
+                municipality=municipality,
+                zip_code=zip_code,
+                street=street,
+                landmark=landmark,
+                is_deleted = False,
+            )
+            print('saved')
 
         # Validate and process each product and its quantity
         if not product_uids or not quantities or len(product_uids) != len(quantities):
             messages.error(request, "Invalid data submitted", status=400)
             return redirect(request.path)
-
+        
+        # creating delivery address
+        order_address = OrderAddress.objects.create(
+            country=country,
+            state=state,
+            district=district,
+            municipality=municipality,
+            zip_code=zip_code,
+            street=street,
+            landmark=landmark,
+        )
+        order_address.save()
         orders = []  # List to store created order objects for further use or confirmation
-
         for product_uid, quantity_str in zip(product_uids, quantities):
             quantity = int(quantity_str)
 
             if quantity < 1:
                 return HttpResponse('Quantity must be at least 1.', status=400)
 
-            product = get_object_or_404(Product, uid=product_uid)
-            total_price = product.rate * quantity
+            # product = get_object_or_404(Product, uid=product_uid) #fetching object of selected product from db
+            product_user = get_object_or_404(Product_User,productID = product_uid)
+            # merchant = get_object_or_404(User, id = product.merchantID_id) #fetching object of concerned merchant from db
 
+            total_price = product_user.price * quantity
             # Create and save the order object
             order = Order.objects.create(
-                userID=request.user,
-                productID=product,
-                addressID = address,
+                merchantID = product_user.userID,
+                userID=request.user, # buyer/current user
+                productID=product_user.productID,
+                addressID = order_address,
                 quantity=quantity,
-                rate=product.rate,
-                amount=total_price
+                rate=product_user.price,
+                amount=total_price,
             )
             orders.append(order)
-            OrderStatus.objects.create(
-                orderID = order,
-                is_pending = True,
-                is_accepted=False,
-                is_complete = False,
-                is_cancelled=False,
-            )
 
             # Delete the item from the cart after processing
-            CartItem.objects.filter(user=request.user, product=product).delete()
-
+            CartItem.objects.filter(user=request.user, product=product_user.uid).delete()
         # Redirect to a confirmation or success page with relevant details
         messages.success(request, "Order has been placed")
-
+        send_mail_to_merchant(orders)
         return redirect('customer:order-detail')
 
 class AddToCartView(BaseView): #adds items to cart
@@ -376,10 +461,15 @@ class MyCart_View(BaseView): #show items in my cart
             return redirect('customer:buy-now')
         return redirect(request.path)
 
-class Order_Detail_View(View):
+class Order_Detail_View(BaseView):
     def get(self,request):
+        orders = Order.objects.filter(userID=request.user).select_related('addressID', 'productID')
+        # Fetch order statuses for the user's orders
+        # order_status = OrderStatus.objects.filter(orderID__in=orders)
         context = {
             'page_name' : 'myorder',
+            'orders': orders,
+            # 'order_status' : order_status,
         }
         return render(request, f'{app_name}/order.html',context)
     def post(self,request):
@@ -402,6 +492,43 @@ class Automate_Data_Entry(BaseView):
 #             'page_name' : 'add-address',
 #         }
 #         return render(request, f"{app_name}/billing-address.html", context)
+
+class Review_View(BaseView):
+    def post(self,request):
+        user = request.user
+        productID = request.POST.get('product')
+        comment = request.POST.get('comment')
+        rating = request.POST.get('rating')
+
+        product = Product_User.objects.get(productID=productID)
+        product_avg = float(product.review_average)
+        product_count = int(product.review_count) +1
+        new_average = float((product_avg * (product_count - 1)) + int(rating)) / product_count
+        product.review_count = product_count
+        product.review_average = new_average
+        product.save()
+        Review.objects.create(
+            userID = user,
+            productID = product,
+            comment = comment,
+            rating = rating,
+        )
+        return redirect(reverse('customer:product-detail', kwargs={'product_id': productID}))
+
+class DeleteReview_View(BaseView):
+    def post(self,request):
+        user = request.user
+        productID = request.POST.get('productID')
+        product = Product.objects.get(uid=productID)
+        reviewID = request.POST.get('reviewID')
+        print(productID)
+        Review.objects.get(
+            userID = user,
+            productID = product,
+            uid = reviewID,
+        ).delete()
+        return redirect(reverse('customer:product-detail', kwargs={'product_id': productID}))
+
 
 def search_product(request):
     query = request.GET.get('query', '')

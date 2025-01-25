@@ -8,6 +8,10 @@ from django.contrib import messages
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Prefetch
+from templatetags.product_data_fetcher import get_product_data
+from datetime import datetime
+import os
 
 from .models import *
 # from customer.models import ExtraDetails
@@ -19,7 +23,19 @@ from django.http import JsonResponse
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-# Create your views here.
+
+from django.core.mail import send_mail
+from django.conf import settings
+
+def send_mail_to_customer(order):
+    customer = get_object_or_404(User,id=order.userID_id)
+    send_mail(
+        f"Order ID : #{order.uid}",
+        f"Your order for {order.productID} from {order.merchantID} is {order.status}.",
+        settings.EMAIL_HOST_USER,
+        [customer.email],
+        fail_silently=False,
+    )    
 
 app_name = 'merchant'
 
@@ -59,7 +75,7 @@ class Login(View):
         user = authenticate(username = username, password = password)
         if user is not None:# checks if the user is logged in or not?
             login(request,user) #logins the user
-            return redirect('/merchant')
+            return redirect('/merchant/dashboard/')
         else:
             messages.error(request, "Invalid username or password. Please try again.")
             return redirect(request.path)
@@ -121,10 +137,63 @@ class SignupView (View):
         user = authenticate(username = username, password = password)
         if user is not None:# checks if the user is logged in or not?
             login(request,user) #logins the user
-            return redirect('/')
+            return redirect('merchant:my-address')
         
         messages.error(request, "Error logging in. Please try again.")
         return redirect(request.path) 
+
+class AddressView(BaseView):
+    def get(self, request):
+        if not Address.objects.exists():
+            addrss = None
+        else:
+            # Check if the user has an address
+            address = Address.objects.filter(userID=request.user).first()
+
+        context = {
+            'page_name': 'billing-address',
+            'address': address,
+        }
+        return render(request, f"{app_name}/add-address.html", context)
+
+# logical error
+    def post(self,request):
+        action = request.POST.get('action')
+        country = request.POST.get('country')
+        state = request.POST.get('province')
+        district = request.POST.get('district')
+        municipality = request.POST.get('municipality')
+        street = request.POST.get('street')
+        zip_code = request.POST.get('postalCode')
+        landmark = request.POST.get('landmark')
+        if action == 'edit':            
+            # Fetch the related objects from the database
+            address = Address.objects.get(userID = request.user)
+            address = Address.objects.update(
+                userID=request.user,
+                country=country,
+                state=state,
+                district=district,
+                municipality=municipality,
+                zip_code=zip_code,
+                street=street,
+                landmark=landmark,
+                is_deleted = False,
+            )
+        elif action == 'add':            
+            address = Address.objects.create(
+                userID=request.user,
+                country=country,
+                state=state,
+                district=district,
+                municipality=municipality,
+                zip_code=zip_code,
+                street=street,
+                landmark=landmark,
+                is_deleted = False,
+            )
+            address.save()
+        return redirect ('/') 
 
 class Index(BaseView):
     def get(self, request):
@@ -133,66 +202,61 @@ class Index(BaseView):
         }
         return render(request,f'{app_name}/index.html',context)
     
-class AddProductView(BaseView):
-    def get(self, request):
-        try:
-            context = {
-                'categories': Category.objects.all() ,
-                'page_name': 'add-product'
-            }
-            return render(request, f"{app_name}/add_product.html" ,context)
-        except Exception as e:
-            messages.error(request, str(e))
-            return render(request,f"{app_name}/add_product.html")
+# class AddProductView(BaseView):
+#     def get(self, request):
+#         try:
+#             context = {
+#                 'page_name': 'add-product'
+#             }
+#             return render(request, f"{app_name}/add_product.html" ,context)
+#         except Exception as e:
+#             messages.error(request, str(e))
+#             return render(request,f"{app_name}/add_product.html")
 
-    def post(self,request):
-        try:
-            producttitle = request.POST.get('producttitle')
-            featuredimage = request.POST.get('productimgblob')
-            print(featuredimage)
-            price = request.POST.get('price')
-            cat = request.POST.getlist('producttype')
-            description = request.POST.get('editorContent')
-            sellerid = request.user
-
-            types = []
-            for x in cat:
-                try:
-                    product_type = Category.objects.get(name=x)
-                    types.append(product_type)
-                except Category.DoesNotExist:
-                    messages.error(request, f"Product type '{x}' does not exist.")
-                    return render(request, f'{app_name}/add_product.html')
-
-            if not producttitle or not price:
-                messages.error(request, "All fields are required.")
-                return render(request, f'{app_name}/add_product.html')
+#     def post(self,request):
+#         try:
+#             producttitle = request.POST.get('producttitle')
+#             featuredimage = request.POST.get('productimgblob')
+#             stock = request.POST.get('stock')
             
-            product = Product(
-                name=producttitle,
-                merchantID=sellerid,
-                featuredimage=featuredimage,
-                rate = price,
-                description = description
-            )
-            product.save()
+#             cat = request.POST.get('producttype')
+#             description = request.POST.get('editorContent')
+#             sellerid = request.user
 
-            product.categoryID.set(types)
+#             category = get_object_or_404(Category, uid=cat)
+#             price = category.avg_price
+#             price = price.split(' ')[1]
 
-            messages.success(request, "Your Product Has Been Successfully Added!")
-            return redirect(request.path) 
+#             if not producttitle or not price:
+#                 messages.error(request, "All fields are required.")
+#                 return render(request, f'{app_name}/add_product.html')
+            
+#             product = Product(
+#                 name=producttitle,
+#                 merchantID=sellerid,
+#                 featuredimage=featuredimage,
+#                 stock_quantity = stock,
+#                 rate = price,
+#                 description = description,
+#                 categoryID = category
+#             )
+#             product.save()
+
+#             messages.success(request, "Your Product Has Been Successfully Added!")
+#             return redirect(request.path) 
         
-        except Exception as e:
-            messages.error(request, str(e))
+#         except Exception as e:
+#             messages.error(request, str(e))
       
-        return render(request, f'{app_name}/add_product.html') 
+#         return render(request, f'{app_name}/add_product.html') 
 
 class ProductView(BaseView):
     def get(self, request):
-        if request.user.is_superuser:
-            products = Product.objects.all().order_by('-created')
-        else:
-            products = Product.objects.filter(sellerId=request.user).order_by('-created')
+        products = Product.objects.all().order_by('-created')
+        # user_product = Product.objects.filter(product_user__userID=request.user).order_by('-created')
+        for product in products:
+            image_path = os.path.join('static/', 'images', f"{product.slug}.png")
+            product.image_exists = os.path.isfile(image_path)
         
         try:
             context = {
@@ -206,11 +270,8 @@ class ProductView(BaseView):
     
 class DashboardView(BaseView):
     def get(self, request):
-        if request.user.is_superuser:
-            orders = Order.objects.all().order_by('-created')
-        else:
-            orders = Order.objects.filter(sellerId=request.user).order_by('-created')
-
+        user_product_ids = Product_User.objects.filter(userID=request.user).values_list('uid', flat=True)
+        orders = Order.objects.filter(productID__in=user_product_ids)
         try:
             current_user = request.user
             context = {
@@ -245,6 +306,8 @@ class AccountView(BaseView):
         phone = request.POST.get('phone')
         featuredimage = request.POST.get('profileimgblob') if request.POST.get('profileimgblob') else ''
         biotext = request.POST.get('biotext')
+        latitude = request.POST.get('latitude')
+        longitude = request.POST.get('longitude')
 
         try:
             # Update User fields
@@ -257,13 +320,17 @@ class AccountView(BaseView):
                 extrauserfields.mobile=phone
                 extrauserfields.profileimg=featuredimage
                 extrauserfields.bio=biotext
+                extrauserfields.latitude = latitude
+                extrauserfields.longitude = longitude
                 extrauserfields.save()
             except:
                 ExtraUserDetails.objects.create(
                     userID=user, 
                     mobile=phone, 
                     profileimg=featuredimage, 
-                    bio=biotext
+                    bio=biotext,
+                    latitude = latitude,
+                    longitude = longitude
                 )
 
             messages.success(request, "Your profile has been successfully updated!")
@@ -277,13 +344,11 @@ class AccountView(BaseView):
     
 class OrderView(BaseView):
     def get(self,request):
-        orders = Order.objects.all().order_by('-created')
-        # if request.user.is_superuser:
-        #     orders = Order.objects.all().order_by('-created')
-        # else:
-        #     orders = Order.objects.filter(sellerId=request.user).order_by('-created')
+        current_user = request.user
+        user_product_ids = Product_User.objects.filter(userID=current_user.id).values_list('uid', flat=True)
+        orders = Order.objects.filter(productID__in=user_product_ids)
         context = {
-            'order' : orders,
+            'orders' : orders,
             'page_name':'order'
         }
         return render(request,f'{app_name}/order.html',context)
@@ -291,9 +356,16 @@ class OrderView(BaseView):
 class EditProductView(BaseView):
     def get(self, request, id):
         try:
+            product = get_object_or_404(Product, uid=id)
+            min_price = product.min_price.split(' ')[1]
+            max_price = product.max_price.split(' ')[1]
+            image_path = os.path.join('static/', 'images', f"{product.slug}.png")
+            image_exists = os.path.isfile(image_path)
             context = {
                 'product' : get_object_or_404(Product, uid=id),
-                'categories': Category.objects.all() ,
+                'min_price': min_price,
+                'max_price': max_price,
+                'image_exists' : image_exists,
                 'page_name': 'edit-product'
             }
             return render(request, f"{app_name}/edit_product.html" ,context)
@@ -303,41 +375,28 @@ class EditProductView(BaseView):
 
     def post(self,request, id):
         try:
-            product = get_object_or_404(Product, uid=id)
-
-            producttitle = request.POST.get('producttitle')
-            featuredimage = request.POST.get('productimgblob')
             price = request.POST.get('price')
-            cat = request.POST.getlist('producttype')
-            description = request.POST.get('editorContent')
+            stock = request.POST.get('stock')
 
-            types = []
-            for x in cat:
-                try:
-                    product_type = Category.objects.get(name=x)
-                    types.append(product_type)
-                except Category.DoesNotExist:
-                    messages.error(request, f"Product type '{x}' does not exist.")
-                    return render(request, f'{app_name}/edit_product.html')
-
-            if not producttitle or not price:
+            if not stock or not price:
                 messages.error(request, "All fields are required.")
                 return render(request, f'{app_name}/edit_product.html')
-            
-            product.name=producttitle
-            product.featuredimage=featuredimage
-            product.rate = price
-            product.description = description
 
-            product.save()
-
-            product.categoryID.set(types)
+            Product_User.objects.update_or_create(
+                productID=Product.objects.get(uid=id), 
+                userID=request.user,
+                defaults={
+                    'quantity' : stock,
+                    'price':price,
+                }
+            )
 
             messages.success(request, "Your Product Has Been Updated!")
             return redirect('/merchant/products/edit-product/' + str(id))  # Redirect to a blog list or success page after editing
         
         except Exception as e:
             messages.error(request, str(e)) 
+            return render(request,f"{app_name}/edit_product.html")
 
 class DeleteProductView(View):
     def get(self, request, id):
@@ -369,89 +428,68 @@ class ProductTypeView(BaseView):
         except Exception as e:
             messages.error(request, str(e))
             return render(request,f"{app_name}/producttype.html")  
-
-class AddProductTypeView(BaseView):
-    def get(self, request):
-        try:
-            context = {
-                'categories': Category.objects.all() ,
-                'page_name': 'add-producttype'
-            }
-            return render(request, f"{app_name}/add_producttype.html" ,context)
-        except Exception as e:
-            messages.error(request, str(e))
-            return render(request,f"{app_name}/add_producttype.html")
-
-    def post(self,request):
-        try:
-            categorytitle = request.POST.get('producttypetitle')
-            featuredimage = request.POST.get('producttypeimgblob')
-            description = request.POST.get('editorContent')
-            merchantID = request.user
-            
-            if not categorytitle:
-                messages.error(request, "All fields are required.")
-                return render(request, f'{app_name}/add_producttype.html')
-            
-            producttype = Category(
-                merchantID=merchantID,
-                name=categorytitle,
-                featuredimage=featuredimage,
-                description = description
-            )
-            producttype.save()
-
-            messages.success(request, "The Category Has Been Successfully Added!")
-            return redirect(request.path) 
         
-        except Exception as e:
-            messages.error(request, str(e))
-      
-        return render(request, f'{app_name}/add_producttype.html') 
-    
-class EditProductTypeView(BaseView):
+class EditOrderView(BaseView):
     def get(self, request, id):
         try:
+            order = Order.objects.get(uid=id)
             context = {
-                'category' : get_object_or_404(Category, uid=id),
-                'page_name': 'edit-product'
+                'order' : order,
+                'address' : order.addressID,
+                'page_name': 'edit-order'
             }
-            return render(request, f"{app_name}/edit_producttype.html" ,context)
+            return render(request, f"{app_name}/edit_order.html" ,context)
         except Exception as e:
             messages.error(request, str(e))
-            return render(request,f"{app_name}/edit_producttype.html")
+            return render(request,f"{app_name}/edit_order.html")
 
     def post(self,request, id):
         try:
-            category = get_object_or_404(Category, uid=id)
+            order = get_object_or_404(Order, uid=id)
 
-            producttitle = request.POST.get('producttypetitle')
-            featuredimage = request.POST.get('producttypeimgblob')
-            description = request.POST.get('editorContent')
+            status = request.POST.get('orderstatus')
             
-            category.name=producttitle
-            category.featuredimage=featuredimage
-            category.description = description
+            order.status=status
 
-            category.save()
+            order.save()
 
-            messages.success(request, "Your Category Has Been Updated!")
-            return redirect('/merchant/products/edit-producttype/' + str(id))  # Redirect to a blog list or success page after editing
+            send_mail_to_customer(order)
+            messages.success(request, "Your Order Has Been Updated!")
+            return redirect('/merchant/order/edit-order/' + str(id))  # Redirect to a blog list or success page after editing
         
         except Exception as e:
             messages.error(request, str(e)) 
-            return render(request,f"{app_name}/edit_product.html")
-
-class DeleteCategoryView(View):
-    def get(self, request, id):
-        if request.user.is_anonymous:
-            return redirect('/login')
+            return render(request,f"{app_name}/edit_order.html")
         
-        try:
-            delobj = get_object_or_404(Category, uid=id)
-            delobj.delete()
-            messages.success(request, "Deletion Successful")
-            return redirect('/merchant/products/producttype/')
-        except Exception as e:
-            messages.error(request, "Deletion Unsuccessful")
-            return redirect('/merchant/products/producttype/')
+#can be removed        
+class FetchedProductView(BaseView):
+    def get(self, request):
+        data = get_product_data()
+        
+        # Handle error case
+        if isinstance(data, str):
+            return render(request, 'error.html', {'error': data})
+        
+        # Save each product in the database
+        for x in data:
+            name = data[x]['name']
+            unit = data[x]['unit']
+            min_price = data[x]['min']
+            max_price = data[x]['max']
+            avg_price = data[x]['avg']
+            
+            # Check if the product exists; if not, create or update it
+            Category.objects.update_or_create(
+                name=name,
+                defaults={
+                    'unit': unit,
+                    'min_price': min_price,
+                    'max_price': max_price,
+                    'avg_price': avg_price,
+                }
+            )
+        
+        # Fetch products from the database to display
+        products = Product.objects.all()
+        
+        return render(request, f'{app_name}/test_fetchproduct.html', {'products': products})

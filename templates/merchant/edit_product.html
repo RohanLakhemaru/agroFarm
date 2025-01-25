@@ -1,4 +1,5 @@
 {% extends "merchant/temp/base.html" %}
+{% load static %}
 
 {% block title %}
 {{page_name}}
@@ -8,7 +9,6 @@
 <div class="dashboard-product">
     <div class="title">
         <h1>Products</h1>
-        <a href="/dashboard/products/add-new">Add Product</a>
     </div>
     <div class="dashboard-products-wrapper">
         <span class="error-message">
@@ -23,16 +23,16 @@
                     <div class="col-md-8">
                         <div class="left-field">
                             <div class="input-field">
-                                <input type="text" name="producttitle" id="producttitle" value="{{product.name}}">
-                            </div>
-                            <div class="description-field">
-                                <div id="editor"></div>
-                                <input type="hidden" name="editorContent" id="editorContent"
-                                    value="{{product.description}}">
+                                <input type="text" name="producttitle" id="producttitle" value="{{product.name}}" readonly>
                             </div>
                             <div class="input-field">
-                                <label><span>Product Price</span>
-                                    <input type="text" name="price" id="price" value="{{product.rate}}">
+                                <label><span>Stock({{product.unit}})</span>
+                                    <input type="number" name="stock" id="stock" min="0" placeholder="Products in stock">
+                                </label>
+                            </div>
+                            <div class="input-field">
+                                <label><span>Price (Rs)</span>
+                                    <input type="number" name="price" min="{{ min_price }}" max="{{ max_price }}" id="price" placeholder="{{ product.min_price }} - {{ product.max_price }}" autocomplete="off">
                                 </label>
                             </div>
                         </div>
@@ -43,7 +43,7 @@
                                 <h3>Publish</h3>
                                 <div class="publish-box">
                                     <span class="publish-date">
-                                        Publish Date: 2001/09/11
+                                        Publish Date: {{product.created}}
                                     </span>
                                     <div class="d-flex justify-content-between align-items-center mt-3">
                                         <a href="/merchant/products/delete-product/{{product.uid}}" class="delete-btn">Delete Product</a>
@@ -53,34 +53,11 @@
                             </div>
                             <div class="form-field user-profile-image">
                                 <span>Product Featured image</span>
-                                <label class="profile-img" for="product-image">
-                                    <input type="file" style="visibility: hidden;" name="productimg" id="productimg"
-                                        accept="image/*">
-                                    {% if product.featuredimage %}
-                                    <img src="{{product.featuredimage}}" id="fimg" alt="img">
-                                    {% else %}
-                                    <img src="http://matters.cloud392.com/wp-content/uploads/2024/06/camera-icon.png"
-                                        id="fimg" alt="img">
-                                    {% endif %}
-                                </label>
-                                <div class="button-wrapper text-end">
-                                    <button id="removeimg" class="delete-btn">Remove Image</button>
-                                </div>
-                                <textarea name="productimgblob" id="productimgblob" class="d-none"></textarea>
-                            </div>
-                            <div class="category-box">
-                                <span>Categories</span>
-                                <ul>
-
-                                    {% for x in categories %}
-                                    <li>
-                                        <input type="checkbox" id="type{{forloop.counter}}" name="producttype"
-                                            value="{{x.name}}" {% if x in product.categoryID.all %} checked {% endif %} />
-                                        <label for="type{{forloop.counter}}">{{x.name}}</label>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-
+                                {% if image_exists %}
+                                <img src="{% static 'images/' %}{{ product.slug }}.png" alt="{{ product.name }} image">
+                                {% else %}
+                                <img src="{% static 'images/default-nobg.png' %}" alt="{{ product.name }} image">
+                                {% endif %}
                             </div>
                         </div>
                     </div>

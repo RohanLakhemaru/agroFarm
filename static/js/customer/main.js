@@ -44,26 +44,22 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     });
-});
 
-
-//for select all checkbox
-document.addEventListener('DOMContentLoaded', function () {
     const selectAllCheckbox = document.getElementById('select');
     const form = document.getElementById('myForm');
-    const checkboxes = form.querySelectorAll('input[name="cart_item"]');
+    if(form){
+        const checkboxes = form.querySelectorAll('input[name="cart_item"]');
+    }
 
-    selectAllCheckbox.addEventListener('change', function () {
-        const isChecked = this.checked;
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = isChecked;
+    if(selectAllCheckbox){
+        selectAllCheckbox.addEventListener('change', function () {
+            const isChecked = this.checked;
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
         });
-    });
-});
+    }
 
-
-// to display price
-document.addEventListener('DOMContentLoaded', function () {
     const quantityInputs = document.querySelectorAll('input[name="quantity"]');
     quantityInputs.forEach((input) => {
         // Set initial price when the page loads
@@ -95,4 +91,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    document.querySelectorAll('.product-item .locationpoint').forEach( (element) => {
+        element.addEventListener('click', (e) => {
+            console.log(e.target.classList.toggle('active'));
+        })
+    })
 });

@@ -5,12 +5,11 @@ from .models import *
 
 admin.site.register(Address)
 admin.site.register(ExtraUserDetails)
-admin.site.register(User_Address)
 admin.site.register(Category)
 admin.site.register(Tag)
 admin.site.register(Product)
 admin.site.register(Review)
 admin.site.register(Store)
 admin.site.register(Order)
-admin.site.register(OrderStatus)
+admin.site.register(Product_User)
 admin.site.register(PaymentMethod)
