@@ -223,5 +223,21 @@
 
     </div>
 </section>
+
+<section class="other-product-section">
+    <div class="container">
+        <div class="section-title">
+            <h2>Other Products</h2>
+        </div>
+        <div class="row">
+            {% for combined_data in combined_data %}
+                <div class='col-md-3'>
+                    {% include "customer/temp/product_list.html" with combined_data=combined_data%}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
 <script src="{% static 'js/customer/location.js' %}"></script>
 {% endblock body %}
