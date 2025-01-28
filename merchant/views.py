@@ -271,12 +271,13 @@ class ProductView(BaseView):
     
 class DashboardView(BaseView):
     def get(self, request):
-        user_product_ids = Product_User.objects.filter(userID=request.user).values_list('uid', flat=True)
-        orders = Order.objects.filter(productID__in=user_product_ids)
+        orders = Order.objects.filter(merchantID=request.user, status = 'processing')
+        all_orders = Order.objects.filter(merchantID=request.user)
         try:
             current_user = request.user
             context = {
                 'orders' : orders,
+                'allorders': all_orders,
                 'user' : current_user,
                 'page_name': 'Dashboard'
             }
@@ -346,8 +347,8 @@ class AccountView(BaseView):
 class OrderView(BaseView):
     def get(self,request):
         current_user = request.user
-        user_product_ids = Product_User.objects.filter(userID=current_user.id).values_list('uid', flat=True)
-        orders = Order.objects.filter(productID__in=user_product_ids)
+        # user_product_ids = Product_User.objects.filter(userID=current_user.id).values_list('uid', flat=True)
+        orders = Order.objects.filter(merchantID=current_user)
         context = {
             'orders' : orders,
             'page_name':'order'
@@ -358,17 +359,20 @@ class EditProductView(BaseView):
     def get(self, request, id):
         try:
             product = get_object_or_404(Product, uid=id)
+            product_user = get_object_or_404(Product_User, productID=id, userID = request.user)
             min_price = product.min_price.split(' ')[1]
             max_price = product.max_price.split(' ')[1]
             image_path = os.path.join('static/', 'images', f"{product.slug}.png")
             image_exists = os.path.isfile(image_path)
             context = {
-                'product' : get_object_or_404(Product, uid=id),
+                'product' : product,
+                'product_user':product_user,
                 'min_price': min_price,
                 'max_price': max_price,
                 'image_exists' : image_exists,
                 'page_name': 'edit-product'
             }
+    
             return render(request, f"{app_name}/edit_product.html" ,context)
         except Exception as e:
             messages.error(request, str(e))

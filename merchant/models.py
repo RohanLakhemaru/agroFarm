@@ -34,7 +34,7 @@ class ExtraUserDetails(BaseModel):
     longitude = models.DecimalField(max_digits=20, decimal_places=10, default=0.0)
     # addressID = models.OneToOneField(Address,on_delete=models.CASCADE, default=0)
     def __str__(self):
-        return self.user.username
+        return self.bio
 
 
 class Category(BaseModel):
@@ -125,5 +125,6 @@ class CartItem(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    farmer = models.TextField(default='')
     def __str__(self):
         return f'{self.user} added {self.product} to cart'

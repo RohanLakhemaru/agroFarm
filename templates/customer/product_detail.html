@@ -22,21 +22,21 @@
                         {{product.name}}
                     </h1>
                     <div class="price">
-                        <span class="amount">RS. {{ product.avg_price }} /<small>{{product.unit}}</small></span>
+                        <span class="amount">{{ product.avg_price }} /<small>{{product.unit}}</small></span>
                         <span class="amount-source">Average Price Today <strong>(Kalimati)*</strong></span>
                     </div>
                     <div class="quantity-wrapper">
                         <span>Quantity</span>
                         <div class="quantity">
-                            <button type="button" class="quantity-down quantity-button">-</button>
-                            <input id="quantity" type="number" min="0" value="0" step="1">
-                            <button type="button" class="quantity-up quantity-button">+</button>
+                            <button class="quantity-down quantity-button" type="button">-</button>
+                            <input id="quantity" name="quantity" type="number" min="0" value="0" step="1">
+                            <button class="quantity-up quantity-button" type="button">+</button>
                         </div>
                     </div>
                     <div class="product-listing-stock">
                         {% for farmer in farmer_products %}
                         <div class="product-item">
-                            <div class="locationpoint" data-lat="{{farmer.latitude}}" data-long="{{farmer.longitude}}">
+                            <div class="locationpoint" data-farmerid="{{farmer.uid}}" data-lat="{{farmer.latitude}}" data-long="{{farmer.longitude}}">
                                 <h3 class="stock-price">Farmer Price: {{ farmer.price }} per {{product.unit}}</h3>
                                 <div class="d-flex justify-content-start">
                                     Available stock : {{farmer.quantity}} {{product.unit}}
@@ -62,11 +62,9 @@
                 <div class=" d-flex align-item-center my-4">
                     <form method='POST' id="buyform">
                         {% csrf_token %}
-                        <input name='product_id' value='{{product.uid}}' type="hidden" id='uid'>
-                        <button type="submit" name="action" value="buy" class="btn btn-dark px-4 buynowbtn" disabled>Buy
-                            now</button>
-                        <button class="btn btn-success add-to-cart-btn px-4" value="add to cart"
-                            data-product-uid="{{ product.uid }}" data-quantity="0" disabled>Add to Cart</button>
+                        <input name='product_id' value='{{product.uid}}' type="hidden" id = 'uid'>
+                        <button type="submit" name="action" value="buy" class="btn btn-dark px-4 buynowbtn" disabled>Buy now</button>               
+                        <button class="btn btn-success add-to-cart-btn px-4" value="add to cart" data-product-uid="{{ product.uid }}" data-quantity="0" data-farmer="" disabled>Add to Cart</button>
                     </form>
                 </div>
                 <div class="information">
@@ -129,42 +127,42 @@
         <div class="row mx-5 justify-content-center py-5 my-5" style="background-color:#e0dede; border-radius:6px">
             <div class="col-8">
                 {% if reviews %}
-                <h2 class="text-center mb-4">Reviews</h2>
-                {% for review in reviews %}
-                <div class="review mb-4 p-3" style="border: 1px solid #ccc; border-radius: 5px;">
-                    <div class="row">
-                        <div class="col">
-                            <h4 class="mb-2">{{ review.userID }}</h4>
-                            <p><strong>Rating:</strong> {{ review.rating }}</p>
-                            <p><strong>Comment:</strong> {{ review.comment }}</p>
-
+                    <h2 class="text-center mb-4">Reviews</h2>
+                    {% for review in reviews %}
+                    <div class="review mb-4 p-3" style="border: 1px solid #ccc; border-radius: 5px;">
+                        <div class="row">
+                            <div class="col">
+                                <h4 class="mb-2">{{ review.userID }}</h4>
+                                <p><strong>Rating:</strong> {{ review.rating }}</p>
+                                <p><strong>Comment:</strong> {{ review.comment }}</p>
+                                
+                            </div>
+                            <div class="col-3 d-flex justify-content-end">
+                                <form action="{% url "customer:delete-review" %}" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name='productID' value='{{product.uid}}'>
+                                    <input name='reviewID' value="{{review.uid}}" type="hidden">
+                                    <button class='btn btn-danger' type="submit">Delete Comment</button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="col-3 d-flex justify-content-end">
-                            <form action="{% url " customer:delete-review" %}" method="post">
-                                {% csrf_token %}
-                                <input type="hidden" name='productID' value='{{product.uid}}'>
-                                <input name='reviewID' value="{{review.uid}}" type="hidden">
-                                <button class='btn btn-danger' type="submit">Delete Comment</button>
-                            </form>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row">
-                        <div class="col">
-                            <form action="{% url 'customer:review' %}" method="POST" class="mt-4 mx-auto"
-                                style="width: 50%;">
-                                {% csrf_token %}
-                                <input type="hidden" name='product' value='{{product.uid}}'>
-                                <div class="mb-3">
-                                    <label for="rating" class="form-label">Rating</label>
-                                    <select name="rating" id="rating" class="form-select" required>
-                                        <option value="">Select Rating</option>
-                                        <option value="1">1 - Poor</option>
-                                        <option value="2">2 - Fair</option>
-                                        <option value="3">3 - Good</option>
-                                        <option value="4">4 - Very Good</option>
-                                        <option value="5">5 - Excellent</option>
-                                    </select>
+                        <hr>
+                        <div class="row">
+                            <div class="col">
+                                <form action="{% url 'customer:review' %}" method="POST" class="mt-4 mx-auto" style="width: 50%;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name='product' value='{{product.uid}}'>
+                                    <div class="mb-3">
+                                        <label for="rating" class="form-label">Rating</label>
+                                        <select name="rating" id="rating" class="form-select" required>
+                                            <option value="">Select Rating</option>
+                                            <option value="1">1 - Poor</option>
+                                            <option value="2">2 - Fair</option>
+                                            <option value="3">3 - Good</option>
+                                            <option value="4">4 - Very Good</option>
+                                            <option value="5">5 - Excellent</option>
+                                        </select>
+                                    </div>
                                     <div class="review-ratings">
                                         <label><input type="radio" name="ratings" value="1" checked></label>
                                         <label><input type="radio" name="ratings" value="2"></label>
@@ -172,35 +170,35 @@
                                         <label><input type="radio" name="ratings" value="4"></label>
                                         <label><input type="radio" name="ratings" value="5"></label>
                                     </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="comment" class="form-label">Comment</label>
-                                    <textarea name="comment" id="comment" class="form-control" rows="4"
-                                        placeholder="Write your review..." required></textarea>
-                                </div>
-                                <button class="btn btn-success" type="submit">Add Review</button>
-                            </form>
+                                    <div class="mb-3">
+                                        <label for="comment" class="form-label">Comment</label>
+                                        <textarea name="comment" id="comment" class="form-control" rows="4" placeholder="Write your review..." required></textarea>
+                                    </div>
+                                    <button class="btn btn-success" type="submit">Add Review</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
                 {% else %}
-                <div class="text-center">
-                    <h2>No Reviews Yet</h2>
-                    <p>Be the first to add a review!</p>
-                    <form action="{% url 'customer:review' %}" method="POST" class="mt-4 mx-auto" style="width: 50%;">
-                        {% csrf_token %}
-                        <input type="hidden" name='product' value='{{product.uid}}'>
-                        <div class="mb-3">
-                            <label for="rating" class="form-label">Rating</label>
-                            <select name="rating" id="rating" class="form-select" required>
-                                <option value="">Select Rating</option>
-                                <option value="1">1 - Poor</option>
-                                <option value="2">2 - Fair</option>
-                                <option value="3">3 - Good</option>
-                                <option value="4">4 - Very Good</option>
-                                <option value="5">5 - Excellent</option>
-                            </select>
+                    <div class="text-center">
+                        <h2>No Reviews Yet</h2>
+                        <p>Be the first to add a review!</p>
+                        <form action="{% url 'customer:review' %}" method="POST" class="mt-4 mx-auto" style="width: 50%;">
+                            {% csrf_token %}
+                            <input type="hidden" name='product' value='{{product.uid}}'>
+                            <div class="mb-3">
+                                <label for="rating" class="form-label">Rating</label>
+                                <select name="rating" id="rating" class="form-select" required>
+                                    <option value="">Select Rating</option>
+                                    <option value="1">1 - Poor</option>
+                                    <option value="2">2 - Fair</option>
+                                    <option value="3">3 - Good</option>
+                                    <option value="4">4 - Very Good</option>
+                                    <option value="5">5 - Excellent</option>
+                                </select>
+                            </div>
+                            
                             <div class="review-ratings">
                                 <label><input type="radio" name="ratings" value="1" checked></label>
                                 <label><input type="radio" name="ratings" value="2"></label>
@@ -208,15 +206,13 @@
                                 <label><input type="radio" name="ratings" value="4"></label>
                                 <label><input type="radio" name="ratings" value="5"></label>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="comment" class="form-label">Comment</label>
-                            <textarea name="comment" id="comment" class="form-control" rows="4"
-                                placeholder="Write your review..." required></textarea>
-                        </div>
-                        <button class="btn btn-success" type="submit">Add Review</button>
-                    </form>
-                </div>
+                            <div class="mb-3">
+                                <label for="comment" class="form-label">Comment</label>
+                                <textarea name="comment" id="comment" class="form-control" rows="4" placeholder="Write your review..." required></textarea>
+                            </div>
+                            <button class="btn btn-success" type="submit">Add Review</button>
+                        </form>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -224,7 +220,7 @@
     </div>
 </section>
 
-<section class="other-product-section">
+<section class="other-product-section section-gaps pt-0">
     <div class="container">
         <div class="section-title">
             <h2>Other Products</h2>
