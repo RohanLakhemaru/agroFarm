@@ -6,6 +6,14 @@
     --color-bg: #eae3d2;
     --color-bgd: #f9f5eb;
 }
+body{
+    min-height: 100vh;
+    position: relative;
+}
+footer{
+    position: sticky;
+    top:100%;
+}
 .section-gaps{
     padding: 90px 0;
 }
